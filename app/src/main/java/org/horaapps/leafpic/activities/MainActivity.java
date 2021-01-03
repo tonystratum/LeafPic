@@ -70,6 +70,12 @@ import static org.horaapps.leafpic.views.navigation_drawer.NavigationDrawer.NAVI
 import static org.horaapps.leafpic.views.navigation_drawer.NavigationDrawer.NAVIGATION_ITEM_WALLPAPERS;
 import static org.horaapps.leafpic.views.navigation_drawer.NavigationDrawer.NavigationItem;
 
+// PyTorch
+import org.pytorch.IValue;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+import org.pytorch.torchvision.TensorImageUtils;
+
 /**
  * The Main Activity used to display Albums / Media.
  */

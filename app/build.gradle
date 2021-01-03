@@ -14,7 +14,7 @@ android {
     compileSdkVersion project.sdkVersion
     defaultConfig {
         applicationId "org.horaapps.leafpic"
-        minSdkVersion 19
+        minSdkVersion 21
         targetSdkVersion project.sdkVersion
         versionName "v0.7-alpha-2"
         versionCode 16
@@ -76,6 +76,10 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+
+    // PyTorch
+    implementation 'org.pytorch:pytorch_android:1.6.0'
+    implementation 'org.pytorch:pytorch_android_torchvision:1.5.0'
 
     //exifInterface
     implementation "com.android.support:exifinterface:$supportVersion"
