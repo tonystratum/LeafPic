@@ -1,2 +1,5 @@
 /build
 /src/main/gen/
+
+# PyTorch model
+/src/main/assets/model.pt

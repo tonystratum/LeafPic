@@ -1,11 +1,14 @@
 package org.horaapps.leafpic.adapters;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.support.annotation.NonNull;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,6 +22,7 @@ import com.bumptech.glide.request.RequestOptions;
 import com.mikepenz.community_material_typeface_library.CommunityMaterial;
 import com.mikepenz.google_material_typeface_library.GoogleMaterial;
 
+import org.horaapps.leafpic.ImageNetClasses;
 import org.horaapps.leafpic.R;
 import org.horaapps.leafpic.data.Album;
 import org.horaapps.leafpic.data.Media;
@@ -31,8 +35,18 @@ import org.horaapps.liz.ThemeHelper;
 import org.horaapps.liz.ThemedAdapter;
 import org.horaapps.liz.ThemedViewHolder;
 import org.horaapps.liz.ui.ThemedIcon;
+import org.pytorch.IValue;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+import org.pytorch.torchvision.TensorImageUtils;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -42,7 +56,7 @@ import butterknife.ButterKnife;
 
 /**
  * Adapter used to display Media Items.
- *
+ * <p>
  * TODO: This class needs a major cleanup. Remove code from onBindViewHolder!
  */
 public class MediaAdapter extends ThemedAdapter<MediaAdapter.ViewHolder> {
@@ -58,6 +72,8 @@ public class MediaAdapter extends ThemedAdapter<MediaAdapter.ViewHolder> {
 
     private boolean isSelecting = false;
 
+    private final Context context;
+
     public MediaAdapter(Context context, SortingMode sortingMode, SortingOrder sortingOrder, ActionsListener actionsListener) {
         super(context);
         media = new ArrayList<>();
@@ -66,6 +82,8 @@ public class MediaAdapter extends ThemedAdapter<MediaAdapter.ViewHolder> {
         placeholder = getThemeHelper().getPlaceHolder();
         setHasStableIds(true);
         this.actionsListener = actionsListener;
+
+        this.context = context;
     }
 
     private void sort() {
@@ -127,6 +145,45 @@ public class MediaAdapter extends ThemedAdapter<MediaAdapter.ViewHolder> {
                 notifyItemChanged(i);
         selectedCount = media.size();
         startSelection();
+
+        for (Media m : media) {
+            Bitmap bitmap = m.getBitmap();
+            Module module = null;
+
+            // TODO: get path of model / activity context
+            try {
+                // loading serialized torchscript module from packaged into app android asset model.pt,
+                // app/src/model/assets/model.pt
+                module = Module.load(assetFilePath(context, "model.pt"));
+            } catch (IOException e) {
+                Log.e("PytorchHelloWorld", "Error reading assets", e);
+            }
+
+            // preparing input tensor
+
+            final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
+                    TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB);
+
+            final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+
+            // getting tensor content as java array of floats
+            final float[] scores = outputTensor.getDataAsFloatArray();
+            System.out.println("-----> pred");
+            //System.out.println(Arrays.toString(scores));
+
+            // searching for the index with maximum score
+            float maxScore = -Float.MAX_VALUE;
+            int maxScoreIdx = -1;
+            for (int i = 0; i < scores.length; i++) {
+                if (scores[i] > maxScore) {
+                    maxScore = scores[i];
+                    maxScoreIdx = i;
+                }
+            }
+
+            String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
+            System.out.println(className);
+        }
     }
 
     public boolean clearSelected() {
@@ -370,6 +427,25 @@ public class MediaAdapter extends ThemedAdapter<MediaAdapter.ViewHolder> {
         @Override
         public void refreshTheme(ThemeHelper themeHelper) {
             icon.setColor(Color.WHITE);
+        }
+    }
+
+    public static String assetFilePath(Context context, String assetName) throws IOException {
+        File file = new File(context.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(assetName)) {
+            try (OutputStream os = new FileOutputStream(file)) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
         }
     }
 }
