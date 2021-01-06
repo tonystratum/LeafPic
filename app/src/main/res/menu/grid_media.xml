@@ -142,7 +142,7 @@
     <!--Line 148-->
     <!--android:title="@string/settings"-->
     <item
-        android:id="@+id/test_action"
-        android:title="_test"
+        android:id="@+id/analyze"
+        android:title="Analyze!"
         app:showAsAction="never" />
 </menu>

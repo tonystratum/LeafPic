@@ -34,6 +34,7 @@ import android.widget.Toast;
 
 import com.mikepenz.google_material_typeface_library.GoogleMaterial;
 
+import org.horaapps.leafpic.ImageNetClasses;
 import org.horaapps.leafpic.R;
 import org.horaapps.leafpic.activities.PaletteActivity;
 import org.horaapps.leafpic.adapters.MediaAdapter;
@@ -61,7 +62,12 @@ import org.horaapps.leafpic.views.GridSpacingItemDecoration;
 import org.horaapps.liz.ThemeHelper;
 import org.horaapps.liz.ThemedActivity;
 import org.horaapps.liz.ui.ThemedIcon;
+import org.pytorch.IValue;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+import org.pytorch.torchvision.TensorImageUtils;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -419,10 +425,46 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                 }
                 return true;
 
-            case R.id.test_action:
-                System.out.println("-----> test action!\nselected:");
-                System.out.println(getSelectedCount());
-                System.out.println("\n\n\n\n\n");
+            case R.id.analyze:
+
+                for (Media m : adapter.getSelected()) {
+                    Bitmap bitmap = m.getBitmap();
+                    Module module = null;
+
+                    try {
+                        // loading serialized torchscript module from packaged into app android asset model.pt,
+                        // app/src/model/assets/model.pt
+                        module = Module.load(adapter.assetFilePath(adapter.getContext(), "model.pt"));
+                    } catch (IOException e) {
+                        Log.e("PytorchHelloWorld", "Error reading assets", e);
+                    }
+
+                    // preparing input tensor
+
+                    final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
+                            TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB);
+
+                    final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+
+                    // getting tensor content as java array of floats
+                    final float[] scores = outputTensor.getDataAsFloatArray();
+                    System.out.println("-----> pred");
+                    //System.out.println(Arrays.toString(scores));
+
+                    // searching for the index with maximum score
+                    float maxScore = -Float.MAX_VALUE;
+                    int maxScoreIdx = -1;
+                    for (int i = 0; i < scores.length; i++) {
+                        if (scores[i] > maxScore) {
+                            maxScore = scores[i];
+                            maxScoreIdx = i;
+                        }
+                    }
+
+                    String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
+                    System.out.println(className);
+                }
+
                 return true;
 
             //region Affix
