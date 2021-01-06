@@ -69,7 +69,9 @@ import org.pytorch.Tensor;
 import org.pytorch.torchvision.TensorImageUtils;
 
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 
 import butterknife.BindView;
@@ -429,58 +431,70 @@ public class RvMediaFragment extends BaseMediaGridFragment {
             case R.id.analyze:
 
                 ArrayList<Media> selectedMedia = adapter.getSelected();
+                ArrayList<Bitmap> bitmaps = new ArrayList<>();
+
+                final int dstWidth = 224;
+                final int dstHeight = 224;
+
                 for (int i = 0; i < selectedMedia.size(); i++ ) {
                     Media m = selectedMedia.get(i);
                     System.out.println(m.getPath());
 
                     Bitmap bitmap = Bitmap.createScaledBitmap(
                             BitmapFactory.decodeFile(m.getPath()),
-                            224,
-                            224,
+                            dstWidth,
+                            dstHeight,
                             false
                     );
-                    Module module = null;
 
-                    try {
-                        module = Module.load(adapter.assetFilePath(adapter.getContext(), "mobilenet.pt"));
-                    } catch (IOException e) {
-                        Log.e("LeafPic", "Error reading assets", e);
-                    }
-
-                    // preparing input tensor
-                    final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
-                            TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB);
-
-                    final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
-
-                    // getting tensor content as java array of floats
-                    final float[] scores = outputTensor.getDataAsFloatArray();
-                    System.out.println("-----> pred");
-
-                    // searching for the index with maximum score
-                    float maxScore = -Float.MAX_VALUE;
-                    int maxScoreIdx = -1;
-                    for (int j = 0; j < scores.length; j++) {
-                        if (scores[j] > maxScore) {
-                            maxScore = scores[j];
-                            maxScoreIdx = j;
-                        }
-                    }
-
-                    String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
-                    System.out.println(className);
-
-                    // pop a toast with the className
-                    Toast.makeText(adapter.getContext(), className, Toast.LENGTH_SHORT).show();
-
-                    // deselect the true negatives
-                    /*
-                    if (className == "goldfish, Carassius auratus") {
-                        m.setSelected(false);
-                        adapter.notifyItemChanged(i);
-                    }
-                     */
+                    bitmaps.add(bitmap);
                 }
+
+                Module module = null;
+
+                try {
+                    module = Module.load(adapter.assetFilePath(adapter.getContext(), "mobilenet.pt"));
+                } catch (IOException e) {
+                    Log.e("LeafPic", "Error reading assets", e);
+                }
+
+                // preparing input tensor
+                final Tensor inputTensor = bitmapsToFloat32Tensor(bitmaps, dstWidth, dstHeight);
+
+                // inference
+                final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
+                System.out.println("----> out tensor shape");
+                System.out.println(Arrays.toString(outputTensor.shape()));
+
+                // getting tensor content as java array of floats
+                final float[] scores = outputTensor.getDataAsFloatArray();
+                System.out.println("-----> pred");
+                System.out.println(Arrays.toString(scores));
+
+                // searching for the index with maximum score
+                float maxScore = -Float.MAX_VALUE;
+                int maxScoreIdx = -1;
+                for (int j = 0; j < scores.length; j++) {
+                    if (scores[j] > maxScore) {
+                        maxScore = scores[j];
+                        maxScoreIdx = j;
+                    }
+                }
+
+                String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
+                System.out.println(className);
+
+                // pop a toast with the className
+                Toast.makeText(adapter.getContext(), className, Toast.LENGTH_SHORT).show();
+
+                // deselect the true negatives
+                /*
+                if (className == "goldfish, Carassius auratus") {
+                    m.setSelected(false);
+                    adapter.notifyItemChanged(i);
+                }
+                 */
+
 
                 return true;
 
@@ -731,5 +745,75 @@ public class RvMediaFragment extends BaseMediaGridFragment {
         adapter.refreshTheme(t);
         refresh.setColorSchemeColors(t.getAccentColor());
         refresh.setProgressBackgroundColorSchemeColor(t.getBackgroundColor());
+    }
+
+    private Tensor bitmapsToFloat32Tensor(
+            final ArrayList<Bitmap> bitmaps, // only equally-sized bitmaps
+            int width,
+            int height) {
+        final float[] normMeanRGB = TensorImageUtils.TORCHVISION_NORM_MEAN_RGB;
+        final float[] normStdRGB = TensorImageUtils.TORCHVISION_NORM_STD_RGB;
+
+        checkNormMeanArg(normMeanRGB);
+        checkNormStdArg(normStdRGB);
+
+        final FloatBuffer floatBuffer = Tensor.allocateFloatBuffer(bitmaps.size() * 3 * width * height);
+        for (int i = 0; i < bitmaps.size(); i++) {
+            bitmapToFloatBuffer(bitmaps.get(i), 0, 0, width, height, normMeanRGB, normStdRGB, floatBuffer, i);
+        }
+        return Tensor.fromBlob(floatBuffer, new long[] {bitmaps.size(), 3, height, width});
+    }
+
+    private void bitmapToFloatBuffer(
+            final Bitmap bitmap,
+            final int x,
+            final int y,
+            final int width,
+            final int height,
+            final float[] normMeanRGB,
+            final float[] normStdRGB,
+            final FloatBuffer outBuffer,
+            final int outBufferOffset) {
+
+        checkOutBufferCapacity(outBuffer, outBufferOffset, width, height);
+        checkNormMeanArg(normMeanRGB);
+        checkNormStdArg(normStdRGB);
+
+        final int pixelsCount = height * width;
+        final int[] pixels = new int[pixelsCount];
+        bitmap.getPixels(pixels, 0, width, x, y, width, height);
+        final int offset_g = pixelsCount;
+        final int offset_b = 2 * pixelsCount;
+        for (int i = 0; i < pixelsCount; i++) {
+            final int c = pixels[i];
+            float r = ((c >> 16) & 0xff) / 255.0f;
+            float g = ((c >> 8) & 0xff) / 255.0f;
+            float b = ((c) & 0xff) / 255.0f;
+            float rF = (r - normMeanRGB[0]) / normStdRGB[0];
+            float gF = (g - normMeanRGB[1]) / normStdRGB[1];
+            float bF = (b - normMeanRGB[2]) / normStdRGB[2];
+            outBuffer.put(outBufferOffset + i, rF);
+            outBuffer.put(outBufferOffset + offset_g + i, gF);
+            outBuffer.put(outBufferOffset + offset_b + i, bF);
+        }
+    }
+
+    private void checkOutBufferCapacity(
+            FloatBuffer outBuffer, int outBufferOffset, int tensorWidth, int tensorHeight) {
+        if (outBufferOffset + 3 * tensorWidth * tensorHeight > outBuffer.capacity()) {
+            throw new IllegalStateException("Buffer underflow");
+        }
+    }
+
+    private void checkNormMeanArg(float[] normMeanRGB) {
+        if (normMeanRGB.length != 3) {
+            throw new IllegalArgumentException("normMeanRGB length must be 3");
+        }
+    }
+
+    private static void checkNormStdArg(float[] normStdRGB) {
+        if (normStdRGB.length != 3) {
+            throw new IllegalArgumentException("normStdRGB length must be 3");
+        }
     }
 }
