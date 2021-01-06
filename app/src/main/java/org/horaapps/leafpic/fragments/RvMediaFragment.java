@@ -442,15 +442,12 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                     Module module = null;
 
                     try {
-                        // loading serialized torchscript module from packaged into app android asset model.pt,
-                        // app/src/model/assets/model.pt
                         module = Module.load(adapter.assetFilePath(adapter.getContext(), "mobilenet.pt"));
                     } catch (IOException e) {
-                        Log.e("PytorchHelloWorld", "Error reading assets", e);
+                        Log.e("LeafPic", "Error reading assets", e);
                     }
 
                     // preparing input tensor
-
                     final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(bitmap,
                             TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB);
 
@@ -459,25 +456,30 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                     // getting tensor content as java array of floats
                     final float[] scores = outputTensor.getDataAsFloatArray();
                     System.out.println("-----> pred");
-                    //System.out.println(Arrays.toString(scores));
 
                     // searching for the index with maximum score
                     float maxScore = -Float.MAX_VALUE;
                     int maxScoreIdx = -1;
                     for (int j = 0; j < scores.length; j++) {
                         if (scores[j] > maxScore) {
-                            maxScore = scores[i];
-                            maxScoreIdx = i;
+                            maxScore = scores[j];
+                            maxScoreIdx = j;
                         }
                     }
 
                     String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
                     System.out.println(className);
 
+                    // pop a toast with the className
+                    Toast.makeText(adapter.getContext(), className, Toast.LENGTH_SHORT).show();
+
+                    // deselect the true negatives
+                    /*
                     if (className == "goldfish, Carassius auratus") {
                         m.setSelected(false);
                         adapter.notifyItemChanged(i);
                     }
+                     */
                 }
 
                 return true;

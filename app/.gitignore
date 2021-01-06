@@ -2,4 +2,4 @@
 /src/main/gen/
 
 # PyTorch model
-/src/main/assets/model.pt
+/src/main/assets/
