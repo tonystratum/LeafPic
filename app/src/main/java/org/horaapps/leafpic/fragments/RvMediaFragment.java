@@ -419,6 +419,12 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                 }
                 return true;
 
+            case R.id.test_action:
+                System.out.println("-----> test action!\nselected:");
+                System.out.println(getSelectedCount());
+                System.out.println("\n\n\n\n\n");
+                return true;
+
             //region Affix
             // TODO: 11/21/16 move away from here
             case R.id.affix:

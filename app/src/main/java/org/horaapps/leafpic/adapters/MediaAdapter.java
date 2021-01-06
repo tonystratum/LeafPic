@@ -150,7 +150,6 @@ public class MediaAdapter extends ThemedAdapter<MediaAdapter.ViewHolder> {
             Bitmap bitmap = m.getBitmap();
             Module module = null;
 
-            // TODO: get path of model / activity context
             try {
                 // loading serialized torchscript module from packaged into app android asset model.pt,
                 // app/src/model/assets/model.pt
