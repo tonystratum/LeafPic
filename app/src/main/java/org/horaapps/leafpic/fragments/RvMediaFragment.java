@@ -5,6 +5,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.os.AsyncTask;
@@ -427,14 +428,23 @@ public class RvMediaFragment extends BaseMediaGridFragment {
 
             case R.id.analyze:
 
-                for (Media m : adapter.getSelected()) {
-                    Bitmap bitmap = m.getBitmap();
+                ArrayList<Media> selectedMedia = adapter.getSelected();
+                for (int i = 0; i < selectedMedia.size(); i++ ) {
+                    Media m = selectedMedia.get(i);
+                    System.out.println(m.getPath());
+
+                    Bitmap bitmap = Bitmap.createScaledBitmap(
+                            BitmapFactory.decodeFile(m.getPath()),
+                            224,
+                            224,
+                            false
+                    );
                     Module module = null;
 
                     try {
                         // loading serialized torchscript module from packaged into app android asset model.pt,
                         // app/src/model/assets/model.pt
-                        module = Module.load(adapter.assetFilePath(adapter.getContext(), "model.pt"));
+                        module = Module.load(adapter.assetFilePath(adapter.getContext(), "mobilenet.pt"));
                     } catch (IOException e) {
                         Log.e("PytorchHelloWorld", "Error reading assets", e);
                     }
@@ -454,8 +464,8 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                     // searching for the index with maximum score
                     float maxScore = -Float.MAX_VALUE;
                     int maxScoreIdx = -1;
-                    for (int i = 0; i < scores.length; i++) {
-                        if (scores[i] > maxScore) {
+                    for (int j = 0; j < scores.length; j++) {
+                        if (scores[j] > maxScore) {
                             maxScore = scores[i];
                             maxScoreIdx = i;
                         }
@@ -463,6 +473,11 @@ public class RvMediaFragment extends BaseMediaGridFragment {
 
                     String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
                     System.out.println(className);
+
+                    if (className == "goldfish, Carassius auratus") {
+                        m.setSelected(false);
+                        adapter.notifyItemChanged(i);
+                    }
                 }
 
                 return true;
