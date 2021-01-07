@@ -429,6 +429,7 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                 return true;
 
             case R.id.analyze:
+                // TODO: wip
 
                 ArrayList<Media> selectedMedia = adapter.getSelected();
                 ArrayList<Bitmap> bitmaps = new ArrayList<>();
@@ -470,22 +471,39 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                 final float[] scores = outputTensor.getDataAsFloatArray();
                 System.out.println("-----> pred");
                 System.out.println(Arrays.toString(scores));
+                System.out.println(scores.length);
 
                 // searching for the index with maximum score
-                float maxScore = -Float.MAX_VALUE;
-                int maxScoreIdx = -1;
-                for (int j = 0; j < scores.length; j++) {
-                    if (scores[j] > maxScore) {
-                        maxScore = scores[j];
-                        maxScoreIdx = j;
+                String[] labels = new String[bitmaps.size()];
+
+                final int classesLength = ImageNetClasses.IMAGENET_CLASSES.length;
+                for (int j = 0; j < bitmaps.size(); j++) {
+                    float maxScore = -Float.MAX_VALUE;
+                    int maxScoreIdx = -1;
+                    System.out.println("--->low" + Integer.toString(j * classesLength));
+                    System.out.println("--->high" + Integer.toString((j+1) * classesLength));
+
+                    for (int k = j * classesLength;
+                         k < (j + 1) * classesLength;
+                         k++) {
+                        if (scores[k] > maxScore) {
+                            maxScore = scores[k];
+                            maxScoreIdx = k - j * classesLength;
+                            System.out.println(maxScore);
+                            System.out.println("ms" + k);
+                        }
                     }
+
+                    labels[j] = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
+                    System.out.println(maxScore);
+                    System.out.println(maxScoreIdx);
                 }
 
-                String className = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
-                System.out.println(className);
-
                 // pop a toast with the className
-                Toast.makeText(adapter.getContext(), className, Toast.LENGTH_SHORT).show();
+                for (String label : labels) {
+                    Toast.makeText(adapter.getContext(), label, Toast.LENGTH_SHORT).show();
+                    System.out.println(label);
+                }
 
                 // deselect the true negatives
                 /*
