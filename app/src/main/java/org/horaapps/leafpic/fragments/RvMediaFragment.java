@@ -439,7 +439,6 @@ public class RvMediaFragment extends BaseMediaGridFragment {
 
                 for (int i = 0; i < selectedMedia.size(); i++ ) {
                     Media m = selectedMedia.get(i);
-                    System.out.println(m.getPath());
 
                     Bitmap bitmap = Bitmap.createScaledBitmap(
                             BitmapFactory.decodeFile(m.getPath()),
@@ -464,14 +463,9 @@ public class RvMediaFragment extends BaseMediaGridFragment {
 
                 // inference
                 final Tensor outputTensor = module.forward(IValue.from(inputTensor)).toTensor();
-                System.out.println("----> out tensor shape");
-                System.out.println(Arrays.toString(outputTensor.shape()));
 
                 // getting tensor content as java array of floats
                 final float[] scores = outputTensor.getDataAsFloatArray();
-                System.out.println("-----> pred");
-                System.out.println(Arrays.toString(scores));
-                System.out.println(scores.length);
 
                 // searching for the index with maximum score
                 String[] labels = new String[bitmaps.size()];
@@ -480,8 +474,6 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                 for (int j = 0; j < bitmaps.size(); j++) {
                     float maxScore = -Float.MAX_VALUE;
                     int maxScoreIdx = -1;
-                    System.out.println("--->low" + Integer.toString(j * classesLength));
-                    System.out.println("--->high" + Integer.toString((j+1) * classesLength));
 
                     for (int k = j * classesLength;
                          k < (j + 1) * classesLength;
@@ -489,20 +481,15 @@ public class RvMediaFragment extends BaseMediaGridFragment {
                         if (scores[k] > maxScore) {
                             maxScore = scores[k];
                             maxScoreIdx = k - j * classesLength;
-                            System.out.println(maxScore);
-                            System.out.println("ms" + k);
                         }
                     }
 
                     labels[j] = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
-                    System.out.println(maxScore);
-                    System.out.println(maxScoreIdx);
                 }
 
                 // pop a toast with the className
                 for (String label : labels) {
                     Toast.makeText(adapter.getContext(), label, Toast.LENGTH_SHORT).show();
-                    System.out.println(label);
                 }
 
                 // deselect the true negatives
@@ -777,7 +764,7 @@ public class RvMediaFragment extends BaseMediaGridFragment {
 
         final FloatBuffer floatBuffer = Tensor.allocateFloatBuffer(bitmaps.size() * 3 * width * height);
         for (int i = 0; i < bitmaps.size(); i++) {
-            bitmapToFloatBuffer(bitmaps.get(i), 0, 0, width, height, normMeanRGB, normStdRGB, floatBuffer, i);
+            bitmapToFloatBuffer(bitmaps.get(i), 0, 0, width, height, normMeanRGB, normStdRGB, floatBuffer, i * 3 * width * height);
         }
         return Tensor.fromBlob(floatBuffer, new long[] {bitmaps.size(), 3, height, width});
     }
