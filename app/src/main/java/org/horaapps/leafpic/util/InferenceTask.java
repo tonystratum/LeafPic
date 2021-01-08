@@ -1,5 +1,6 @@
 package org.horaapps.leafpic.util;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
@@ -14,25 +15,29 @@ import org.pytorch.Module;
 import org.pytorch.Tensor;
 import org.pytorch.torchvision.TensorImageUtils;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.ref.WeakReference;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 
-public class InferenceTask extends AsyncTask<MediaAdapter, Integer, String[]> {
-    private MediaAdapter _adapter;
+public class InferenceTask extends AsyncTask<Media, Integer, String[]> {
+    private final WeakReference<Context> contextRef;
 
-    protected String[] doInBackground(MediaAdapter... adapters) {
-        MediaAdapter adapter = adapters[0];
-        _adapter = adapter;
+    public InferenceTask(Context context) {
+        this.contextRef = new WeakReference<>(context);
+    }
 
-        ArrayList<Media> media = adapter.getSelected();
+    protected String[] doInBackground(Media... media) {
         ArrayList<Bitmap> bitmaps = new ArrayList<>();
         final int dstWidth = 224;
         final int dstHeight = 224;
 
-        for (int i = 0; i < media.size(); i++ ) {
-            Media m = media.get(i);
+        for (int i = 0; i < media.length; i++ ) {
+            Media m = media[i];
 
             Bitmap bitmap = Bitmap.createScaledBitmap(
                     BitmapFactory.decodeFile(m.getPath()),
@@ -47,7 +52,7 @@ public class InferenceTask extends AsyncTask<MediaAdapter, Integer, String[]> {
         Module module = null;
 
         try {
-            module = Module.load(adapter.assetFilePath(adapter.getContext(), "mobilenet.pt"));
+            module = Module.load(assetFilePath(contextRef.get(), "mobilenet.pt"));
         } catch (IOException e) {
             Log.e("LeafPic", "Error reading assets", e);
         }
@@ -81,15 +86,13 @@ public class InferenceTask extends AsyncTask<MediaAdapter, Integer, String[]> {
             labels[j] = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
         }
 
-        // pop a toast with the className
-
         // deselect the true negatives
-                /*
-                if (className == "goldfish, Carassius auratus") {
-                    m.setSelected(false);
-                    adapter.notifyItemChanged(i);
-                }
-                 */
+        /*
+        if (className == "goldfish, Carassius auratus") {
+            m.setSelected(false);
+            adapter.notifyItemChanged(i);
+        }
+         */
 
         return labels;
     }
@@ -99,12 +102,9 @@ public class InferenceTask extends AsyncTask<MediaAdapter, Integer, String[]> {
 
     protected void onPostExecute(String[] result) {
         for (String label : result) {
-            Toast.makeText(_adapter.getContext(), label, Toast.LENGTH_SHORT).show();
+            Toast.makeText(contextRef.get(), label, Toast.LENGTH_SHORT).show();
         }
-
     }
-
-
 
     private Tensor bitmapsToFloat32Tensor(
             final ArrayList<Bitmap> bitmaps, // only equally-sized bitmaps
@@ -173,6 +173,25 @@ public class InferenceTask extends AsyncTask<MediaAdapter, Integer, String[]> {
     private static void checkNormStdArg(float[] normStdRGB) {
         if (normStdRGB.length != 3) {
             throw new IllegalArgumentException("normStdRGB length must be 3");
+        }
+    }
+
+    private String assetFilePath(Context context, String assetName) throws IOException {
+        File file = new File(context.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(assetName)) {
+            try (OutputStream os = new FileOutputStream(file)) {
+                byte[] buffer = new byte[4 * 1024];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+            return file.getAbsolutePath();
         }
     }
 }
