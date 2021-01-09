@@ -91,6 +91,10 @@
             android:id="@+id/action_move"
             android:title="@string/move_to"
             app:showAsAction="never" />
+        <item
+            android:id="@+id/analyze"
+            android:title="@string/analyze"
+            app:showAsAction="never" />
     </group>
     <group android:id="@+id/one_selected_items">
         <item
@@ -141,8 +145,4 @@
         app:showAsAction="never" />
     <!--Line 148-->
     <!--android:title="@string/settings"-->
-    <item
-        android:id="@+id/analyze"
-        android:title="Analyze!"
-        app:showAsAction="never" />
 </menu>
