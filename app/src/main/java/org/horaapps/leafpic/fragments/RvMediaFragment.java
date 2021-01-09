@@ -431,9 +431,7 @@ public class RvMediaFragment extends BaseMediaGridFragment {
 
             case R.id.analyze:
                 // TODO: wip
-                Media[] selected = adapter.getSelected().toArray(new Media[0]);
-
-                new InferenceTask(adapter.getContext()).execute(selected);
+                new InferenceTask(adapter).execute();
 
                 return true;
 

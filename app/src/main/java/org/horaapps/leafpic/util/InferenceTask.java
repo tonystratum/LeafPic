@@ -24,20 +24,34 @@ import java.lang.ref.WeakReference;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
-public class InferenceTask extends AsyncTask<Media, Integer, String[]> {
-    private final WeakReference<Context> contextRef;
+public class InferenceTask extends AsyncTask<Void, Void, String[]> {
+    private final WeakReference<MediaAdapter> adapterRef;
+    private ArrayList<Media> media;
+    private ArrayList<Integer> selectedIndices;
 
-    public InferenceTask(Context context) {
-        this.contextRef = new WeakReference<>(context);
+    public InferenceTask(MediaAdapter adapter) {
+        this.adapterRef = new WeakReference<>(adapter);
     }
 
-    protected String[] doInBackground(Media... media) {
+    @Override
+    protected void onPreExecute() {
+        media = adapterRef.get().getSelected();
+        // get indices of selected media
+        // relative to all media
+        selectedIndices = new ArrayList<>();
+        ArrayList<Media> allMedia = adapterRef.get().getMedia();
+        for (int i = 0; i < allMedia.size(); i++)
+            if (allMedia.get(i).isSelected())
+                selectedIndices.add(i);
+    }
+
+    protected String[] doInBackground(Void... voids) {
         ArrayList<Bitmap> bitmaps = new ArrayList<>();
         final int dstWidth = 224;
         final int dstHeight = 224;
 
-        for (int i = 0; i < media.length; i++ ) {
-            Media m = media[i];
+        for (int i = 0; i < media.size(); i++ ) {
+            Media m = media.get(i);
 
             Bitmap bitmap = Bitmap.createScaledBitmap(
                     BitmapFactory.decodeFile(m.getPath()),
@@ -52,7 +66,7 @@ public class InferenceTask extends AsyncTask<Media, Integer, String[]> {
         Module module = null;
 
         try {
-            module = Module.load(assetFilePath(contextRef.get(), "mobilenet.pt"));
+            module = Module.load(assetFilePath(adapterRef.get().getContext(), "mobilenet.pt"));
         } catch (IOException e) {
             Log.e("LeafPic", "Error reading assets", e);
         }
@@ -85,24 +99,23 @@ public class InferenceTask extends AsyncTask<Media, Integer, String[]> {
 
             labels[j] = ImageNetClasses.IMAGENET_CLASSES[maxScoreIdx];
         }
-
-        // deselect the true negatives
-        /*
-        if (className == "goldfish, Carassius auratus") {
-            m.setSelected(false);
-            adapter.notifyItemChanged(i);
-        }
-         */
-
         return labels;
     }
 
-    protected void onProgressUpdate(Integer... progress) {
-    }
+    // TODO: add a SwipeRefreshLayout or something for progress indication
 
     protected void onPostExecute(String[] result) {
+        // deselect the true negatives
+        for (int i = 0; i < media.size(); i++) {
+            if (result[i].contains("grille")) {
+                media.get(i).setSelected(false);
+                adapterRef.get().notifyItemChanged(selectedIndices.get(i));
+            }
+        }
+        adapterRef.get().invalidateSelectedCount();
+
         for (String label : result) {
-            Toast.makeText(contextRef.get(), label, Toast.LENGTH_SHORT).show();
+            Toast.makeText(adapterRef.get().getContext(), label, Toast.LENGTH_SHORT).show();
         }
     }
 
